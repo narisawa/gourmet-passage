@@ -531,6 +531,18 @@ document.getElementById('eb').addEventListener('click',()=>{
   document.getElementById(id)?.addEventListener('input',draw);
 });
 
+
+// フォーカス時に一度だけクリア
+document.querySelectorAll('input[type="search"], input[type="number"]').forEach(el => {
+  el.addEventListener('focus', function() {
+    if (!this.dataset.cleared) {
+      this.value = '';
+      this.dataset.cleared = '1';
+      draw();
+    }
+  });
+});
+
 draw();
 </script>
 </body>
