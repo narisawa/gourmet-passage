@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>グルメ Passage</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, "Hiragino Sans", sans-serif; background: #f5f4f0; min-height: 100vh; padding: 1.5rem 1rem; }
+.wrap { max-width: 460px; margin: 0 auto; }
+h1 { font-size: 18px; font-weight: 500; color: #1a1a1a; margin-bottom: 4px; }
+.sub { font-size: 13px; color: #888; margin-bottom: 1.25rem; }
+.preview-wrap { position: relative; border-radius: 14px; overflow: hidden; background: #141414; margin-bottom: 6px; touch-action: none; transition: max-height 0.2s; }
+canvas { width: 100%; display: block; cursor: grab; max-height: 80vh; object-fit: contain; }
+canvas.dragging { cursor: grabbing; }
+.ph { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: #666; pointer-events: none; }
+.ph svg { opacity: 0.5; }
+.ph span { font-size: 14px; }
+.zoom-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.zoom-hint { font-size: 12px; color: #bbb; flex: 1; }
+.zoom-val { font-size: 12px; color: #555; font-weight: 500; min-width: 36px; text-align: right; display: none; }
+.reset-btn { padding: 6px 12px; border-radius: 7px; border: 0.5px solid #ccc; background: #fff; color: #555; font-size: 13px; cursor: pointer; font-family: inherit; display: none; }
+.upload-label { display: block; width: 100%; padding: 12px 0; border-radius: 10px; border: 0.5px solid #ccc; background: #fff; color: #1a1a1a; font-size: 14px; font-weight: 500; cursor: pointer; text-align: center; margin-bottom: 16px; }
+.upload-label:hover { background: #f5f5f5; }
+#file-input { display: none; }
+.section { margin-bottom: 16px; }
+.fl { font-size: 11px; font-weight: 500; color: #999; letter-spacing: 0.7px; text-transform: uppercase; display: block; margin-bottom: 5px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.lh22 { display: flex; align-items: center; height: 22px; margin-bottom: 5px; }
+input[type="search"], input[type="number"] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; padding: 9px 11px; border-radius: 8px;
+  border: 0.5px solid #ccc; background: #fff; color: #1a1a1a;
+  font-size: 14px; font-family: inherit;
+}
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-decoration { display: none; }
+input:focus { outline: none; border-color: #888; }
+.gps-st { font-size: 11px; margin-top: 4px; min-height: 16px; }
+.gps-st.ok { color: #2d7a2d; }
+.gps-st.err { color: #aaa; }
+.seg-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.seg { flex: 1; padding: 8px 0; font-size: 13px; border-radius: 8px; border: 0.5px solid #ccc; background: transparent; color: #666; cursor: pointer; font-family: inherit; }
+.seg.on { border: 1.5px solid #2563eb; background: #eff6ff; color: #1d4ed8; font-weight: 500; }
+.cur-tog { display: flex; border: 0.5px solid #ccc; border-radius: 6px; overflow: hidden; }
+.cur-btn { padding: 2px 10px; font-size: 12px; border: none; background: transparent; color: #666; cursor: pointer; font-family: inherit; }
+.cur-btn.on { background: #1d4ed8; color: #fff; }
+.slider-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.sl-label { font-size: 11px; font-weight: 500; color: #999; letter-spacing: 0.7px; text-transform: uppercase; white-space: nowrap; }
+.sl-val { font-size: 12px; color: #555; font-weight: 500; min-width: 32px; text-align: right; }
+input[type="range"] { flex: 1; }
+.export-btn { width: 100%; padding: 13px 0; border-radius: 10px; border: 0.5px solid #ccc; background: #fff; color: #1a1a1a; font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit; margin-bottom: 8px; }
+.export-btn:disabled { color: #bbb; cursor: default; background: transparent; }
+.export-btn:not(:disabled):hover { background: #f5f5f5; }
+.note { font-size: 11px; color: #aaa; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>グルメ Passage</h1>
+  <p class="sub">料理写真に店舗情報をオーバーレイ</p>
+
+  <div class="preview-wrap" id="pw">
+    <canvas id="cv" width="1080" height="1350"></canvas>
+    <div class="ph" id="ph">
+      <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="3" y="3" width="18" height="18" rx="2.5"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <span>下のボタンから写真を選択</span>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:8px;margin-bottom:6px;">
+    <button class="seg on" data-size="45" style="font-size:12px;padding:6px 0;">4:5</button>
+    <button class="seg" data-size="11" style="font-size:12px;padding:6px 0;">1:1</button>
+    <button class="seg" data-size="916" style="font-size:12px;padding:6px 0;">9:16</button>
+  </div>
+  <div class="zoom-row">
+    <span class="zoom-hint" id="zh">写真を選ぶとズーム・ドラッグで調整できます</span>
+    <span class="zoom-val" id="zv"></span>
+    <button class="reset-btn" id="rb" onclick="resetTransform()">リセット</button>
+  </div>
+
+  <label class="upload-label" id="ul" for="file-input">写真を選ぶ</label>
+  <input type="file" id="file-input" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;">
+
+  <!-- 店名 -->
+  <div class="section">
+    <label class="fl">店名</label>
+    <input type="search" id="name" placeholder="たかおか">
+  </div>
+
+  <!-- ジャンル・予算 -->
+  <div class="section row2">
+    <div>
+      <div class="lh22"><label class="fl" style="margin-bottom:0;">ジャンル</label></div>
+      <input type="search" id="genre" placeholder="鮨 おまかせ">
+    </div>
+    <div>
+      <div class="lh22" style="justify-content:space-between;">
+        <label class="fl" style="margin-bottom:0;">予算</label>
+        <div class="cur-tog">
+          <button class="cur-btn on" id="cy" onclick="setCur('¥')">¥</button>
+          <button class="cur-btn" id="cen" onclick="setCur('円')">円</button>
+        </div>
+      </div>
+      <input type="search" id="price" placeholder="30,000〜">
+    </div>
+  </div>
+
+  <!-- 商品名 -->
+  <div class="section">
+    <label class="fl">商品名・料理名</label>
+    <input type="search" id="dish" placeholder="大トロ">
+  </div>
+
+  <!-- エリア・訪問日 -->
+  <div class="section row2">
+    <div>
+      <div class="lh22" style="justify-content:space-between;">
+        <label class="fl" style="margin-bottom:0;">エリア・駅名</label>
+        <div class="cur-tog">
+          <button class="cur-btn on" id="la-ja" onclick="setLang('ja')">日</button>
+          <button class="cur-btn" id="la-en" onclick="setLang('en')">EN</button>
+        </div>
+      </div>
+      <input type="search" id="area" placeholder="千葉市 · 千葉駅">
+      <div class="gps-st" id="gs"></div>
+    </div>
+    <div>
+      <div class="lh22"><label class="fl" style="margin-bottom:0;">訪問日</label></div>
+      <input type="search" id="date" placeholder="2025年12月15日">
+    </div>
+  </div>
+
+  <!-- 評価 -->
+  <div class="section">
+    <label class="fl">評価サイト</label>
+    <div class="seg-row">
+      <button class="seg on" data-src="tabelog">食べログ</button>
+      <button class="seg" data-src="google">Google</button>
+      <button class="seg" data-src="both">両方</button>
+      <button class="seg" data-src="none">なし</button>
+    </div>
+    <div id="rt-wrap">
+      <label class="fl">食べログ評価</label>
+      <input type="number" id="rating" step="0.01" min="1" max="5" placeholder="3.85">
+    </div>
+    <div id="rg-wrap" style="display:none;margin-top:8px;">
+      <label class="fl">Google評価</label>
+      <input type="number" id="rating-google" step="0.1" min="1" max="5" placeholder="4.2">
+    </div>
+  </div>
+
+  <!-- スタイル -->
+  <div class="section">
+    <label class="fl">オーバーレイスタイル</label>
+    <div class="seg-row">
+      <button class="seg on" data-style="dark">ダーク</button>
+      <button class="seg" data-style="navy">ネイビー</button>
+      <button class="seg" data-style="warm">ウォーム</button>
+      <button class="seg" data-style="odaiba">シアー</button>
+    </div>
+  </div>
+
+  <div class="slider-row">
+    <span class="sl-label">グラデーション</span>
+    <input type="range" id="gs-range" min="0" max="100" value="38" step="1">
+    <span class="sl-val" id="gs-val">38%</span>
+  </div>
+
+  <button class="export-btn" id="eb" disabled>写真を選択してから書き出し</button>
+  <p class="note">Instagram 4:5（1080×1350px）で書き出されます</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/exif-js@2.3.0/exif.min.js"></script>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const CW = 1080;
+let W = 1080, H = 1350;
+let photoImg = null, rSrc = 'tabelog', oStyle = 'dark', cur = '¥', gradStr = 0.38, lang = 'ja', exportSize = '45';
+let scale = 1, ofX = 0, ofY = 0;
+
+const MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+const ROMAJI = {
+  '東京':'TOKYO','大阪':'OSAKA','京都':'KYOTO','名古屋':'NAGOYA','横浜':'YOKOHAMA',
+  '神戸':'KOBE','福岡':'FUKUOKA','札幌':'SAPPORO','仙台':'SENDAI','広島':'HIROSHIMA',
+  '千葉':'CHIBA','埼玉':'SAITAMA','渋谷':'SHIBUYA','新宿':'SHINJUKU','池袋':'IKEBUKURO',
+  '銀座':'GINZA','六本木':'ROPPONGI','表参道':'OMOTESANDO','原宿':'HARAJUKU',
+  'お台場':'ODAIBA','台場':'ODAIBA','品川':'SHINAGAWA','秋葉原':'AKIHABARA',
+  '上野':'UENO','浅草':'ASAKUSA','中目黒':'NAKAMEGURO','恵比寿':'EBISU',
+  '目黒':'MEGURO','麻布':'AZABU','赤坂':'AKASAKA','吉祥寺':'KICHIJOJI',
+  '下北沢':'SHIMOKITAZAWA','三軒茶屋':'SANGENJAYA','自由が丘':'JIYUGAOKA',
+  '千葉市':'CHIBA','大阪市':'OSAKA','京都市':'KYOTO','名古屋市':'NAGOYA',
+  '横浜市':'YOKOHAMA','福岡市':'FUKUOKA','札幌市':'SAPPORO','仙台市':'SENDAI',
+  '中央区':'CHUO','千代田区':'CHIYODA','港区':'MINATO','新宿区':'SHINJUKU',
+  '渋谷区':'SHIBUYA','台東区':'TAITO',
+};
+
+function v(id) { return document.getElementById(id)?.value || ''; }
+function toRomaji(t) {
+  if (!t) return '';
+  if (ROMAJI[t]) return ROMAJI[t];
+  for (const [jp, en] of Object.entries(ROMAJI)) if (t.includes(jp)) return en;
+  return t.toUpperCase();
+}
+function fmtDate(s) {
+  if (!s) return '';
+  const m1 = s.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+  if (m1) return `${MONTHS[parseInt(m1[2])-1]} ${m1[3]}, ${m1[1]}`;
+  const m2 = s.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if (m2) return `${MONTHS[parseInt(m2[2])-1]} ${parseInt(m2[3])}, ${m2[1]}`;
+  return s;
+}
+function priceVal() {
+  const raw = v('price').replace(/[¥円,]/g,'');
+  const m = raw.match(/^(\d+)(.*)/);
+  if (!m) return v('price');
+  const num = parseInt(m[1]).toLocaleString('ja-JP') + m[2];
+  return cur === '円' ? num + '円' : '¥' + num;
+}
+function starColor(score) {
+  if (score >= 4.5) return 'rgba(227,90,42,.95)';
+  if (score >= 4.0) return 'rgba(227,90,42,.88)';
+  if (score >= 3.5) return 'rgba(200,100,60,.85)';
+  if (score >= 3.0) return 'rgba(170,110,80,.82)';
+  if (score >= 2.5) return 'rgba(140,120,100,.80)';
+  return 'rgba(120,115,110,.78)';
+}
+function setLang(l) {
+  lang = l;
+  document.getElementById('la-ja').classList.toggle('on', l==='ja');
+  document.getElementById('la-en').classList.toggle('on', l==='en');
+  draw();
+}
+
+// GPS
+function toDecDeg(r) {
+  const x = v2 => typeof v2==='number' ? v2 : v2.numerator/v2.denominator;
+  return x(r[0]) + x(r[1])/60 + x(r[2])/3600;
+}
+async function geocode(lat, lon) {
+  const st = document.getElementById('gs');
+  st.textContent = '位置情報を取得中...'; st.className = 'gps-st';
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=ja&zoom=16`);
+    const d = await res.json();
+    const a = d.address || {};
+    const city = a.city || a.town || a.village || '';
+    const ward = a.city_district || a.suburb || a.neighbourhood || '';
+    const area = (city && ward && ward!==city) ? `${city} · ${ward}` : city || ward;
+    if (area) {
+      document.getElementById('area').value = area;
+      st.textContent = '位置情報から自動入力しました'; st.className = 'gps-st ok';
+      draw();
+      setTimeout(() => { st.textContent = ''; }, 4000);
+    }
+  } catch(e) {
+    st.textContent = '位置情報の変換に失敗'; st.className = 'gps-st err';
+    setTimeout(() => { st.textContent = ''; }, 3000);
+  }
+}
+function readExif(file) {
+  EXIF.getData(file, function() {
+    const dt = EXIF.getTag(this,'DateTimeOriginal') || EXIF.getTag(this,'DateTime');
+    if (dt) {
+      const m = dt.match(/^(\d{4}):(\d{2}):(\d{2})/);
+      if (m) { document.getElementById('date').value = `${m[1]}年${parseInt(m[2])}月${parseInt(m[3])}日`; draw(); }
+    }
+    const lat = EXIF.getTag(this,'GPSLatitude'), latR = EXIF.getTag(this,'GPSLatitudeRef')||'N';
+    const lon = EXIF.getTag(this,'GPSLongitude'), lonR = EXIF.getTag(this,'GPSLongitudeRef')||'E';
+    if (lat && lon) geocode(toDecDeg(lat)*(latR==='S'?-1:1), toDecDeg(lon)*(lonR==='W'?-1:1));
+    else {
+      const st = document.getElementById('gs');
+      st.textContent = '位置情報なし（手動入力してください）'; st.className = 'gps-st err';
+      setTimeout(() => { st.textContent = ''; }, 3000);
+    }
+  });
+}
+
+// ズーム・パン
+function ds() { return cv.offsetWidth / W; }
+function clamp() {
+  if (!photoImg) return;
+  const ia = photoImg.width/photoImg.height, ca = W/H;
+  const bw = ia>ca ? H*ia : W, bh = ia>ca ? H : W/ia;
+  const mx = Math.max(0,(bw*scale-W)/2), my = Math.max(0,(bh*scale-H)/2);
+  ofX = Math.max(-mx,Math.min(mx,ofX)); ofY = Math.max(-my,Math.min(my,ofY));
+}
+function updateZoomUI() {
+  document.getElementById('zv').style.display = '';
+  document.getElementById('rb').style.display = '';
+  document.getElementById('zh').textContent = 'スクロール: ズーム　ドラッグ: 移動';
+  document.getElementById('zh').style.color = '#999';
+  document.getElementById('zv').textContent = Math.round(scale*100)+'%';
+}
+function resetTransform() { scale=1; ofX=0; ofY=0; updateZoomUI(); draw(); }
+
+cv.addEventListener('wheel', e => {
+  if (!photoImg) return; e.preventDefault();
+  scale = Math.max(0.5, Math.min(4, scale+(e.deltaY>0?-0.08:0.08)));
+  clamp(); updateZoomUI(); draw();
+}, {passive:false});
+
+let isDrag=false, lmx=0, lmy=0;
+cv.addEventListener('mousedown', e => { if(!photoImg) return; isDrag=true; lmx=e.clientX; lmy=e.clientY; cv.classList.add('dragging'); });
+window.addEventListener('mousemove', e => {
+  if(!isDrag||!photoImg) return;
+  ofX+=(e.clientX-lmx)/ds(); ofY+=(e.clientY-lmy)/ds();
+  lmx=e.clientX; lmy=e.clientY; clamp(); draw();
+});
+window.addEventListener('mouseup', () => { isDrag=false; cv.classList.remove('dragging'); });
+
+let ltd=0, ltx=0, lty=0, itd=false;
+function td(t) { const dx=t[0].clientX-t[1].clientX,dy=t[0].clientY-t[1].clientY; return Math.sqrt(dx*dx+dy*dy); }
+cv.addEventListener('touchstart', e => {
+  if(!photoImg) return; e.preventDefault();
+  if(e.touches.length===2){ltd=td(e.touches);itd=false;}
+  else{ltx=e.touches[0].clientX;lty=e.touches[0].clientY;itd=true;}
+},{passive:false});
+cv.addEventListener('touchmove', e => {
+  if(!photoImg) return; e.preventDefault();
+  if(e.touches.length===2){
+    const d=td(e.touches); scale=Math.max(0.5,Math.min(4,scale*d/ltd)); ltd=d; clamp(); updateZoomUI(); draw();
+  } else if(itd){
+    ofX+=(e.touches[0].clientX-ltx)/ds(); ofY+=(e.touches[0].clientY-lty)/ds();
+    ltx=e.touches[0].clientX; lty=e.touches[0].clientY; clamp(); draw();
+  }
+},{passive:false});
+cv.addEventListener('touchend',()=>{itd=false;});
+
+// Canvas描画
+function rr(x,y,w,h,r){
+  ctx.beginPath(); ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r); ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
+}
+function ss(b,a){ ctx.shadowColor=`rgba(0,0,0,${a})`; ctx.shadowBlur=b; ctx.shadowOffsetX=0; ctx.shadowOffsetY=0; }
+function cs(){ ctx.shadowColor='transparent'; ctx.shadowBlur=0; }
+function badge(text,x,y,al){
+  ctx.font=`300 ${W*.029}px -apple-system,sans-serif`;
+  const tw=ctx.measureText(text).width, bw=tw+44, bh=W*.043, by=y-bh*.78;
+  cs();
+  ctx.fillStyle='rgba(0,0,0,0.38)'; rr(x,by,bw,bh,bh/2); ctx.fill();
+  ctx.fillStyle=`rgba(255,255,255,${al})`; rr(x,by,bw,bh,bh/2); ctx.fill();
+  ctx.strokeStyle=`rgba(255,255,255,${al+.2})`; ctx.lineWidth=1.5; rr(x,by,bw,bh,bh/2); ctx.stroke();
+  ss(6,.5); ctx.fillStyle='rgba(255,255,255,.92)'; ctx.fillText(text,x+22,y-6); cs();
+  return bw+16;
+}
+function stars(score,x,y,size,color){
+  ctx.save(); cs(); ctx.textAlign='left';
+  ctx.font=`400 ${size}px sans-serif`;
+  const sw=ctx.measureText('★★★★★').width;
+  ctx.fillStyle='rgba(255,255,255,.18)'; ctx.fillText('★★★★★',x,y);
+  ctx.beginPath(); ctx.rect(x,y-size*1.1,sw*Math.min(score/5,1),size*1.4); ctx.clip();
+  ctx.fillStyle=color; ctx.fillText('★★★★★',x,y);
+  ctx.restore(); return sw;
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H); ctx.fillStyle='#141414'; ctx.fillRect(0,0,W,H);
+  if(photoImg){
+    const ia=photoImg.width/photoImg.height, ca=W/H;
+    const bw=ia>ca?H*ia:W, bh=ia>ca?H:W/ia;
+    ctx.drawImage(photoImg,(W-bw*scale)/2+ofX,(H-bh*scale)/2+ofY,bw*scale,bh*scale);
+  }
+  const ec={dark:[0,0,0],navy:[10,10,28],warm:[30,9,2],odaiba:[0,0,0]};
+  const [er,eg,eb]=ec[oStyle]||ec.dark;
+  const gs2=oStyle==='odaiba'?0.06:gradStr;
+  const g=ctx.createLinearGradient(0,H*.62,0,H);
+  g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,`rgba(${er},${eg},${eb},${gs2})`);
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
+  const pad=80, nameY=H-384;
+  const fw=oStyle==='odaiba'?'200':'300';
+
+  // 店名
+  ss(oStyle==='odaiba'?0:10, oStyle==='odaiba'?0:0.4);
+  ctx.font=`${fw} ${W*.066}px -apple-system,"Hiragino Sans",sans-serif`;
+  ctx.fillStyle='rgba(255,255,255,.97)'; ctx.textAlign='left';
+  const nameText = v('name')||'店名';
+  ctx.fillText(nameText, pad, nameY); cs();
+
+  // 商品名（店名の右に / 料理名）
+  if(v('dish')) {
+    const nameW = ctx.measureText(nameText).width;
+    ss(6,.4);
+    ctx.font=`300 ${W*.038}px -apple-system,"Hiragino Sans",sans-serif`;
+    ctx.fillStyle='rgba(255,255,255,.75)';
+    ctx.fillText(' / ' + v('dish'), pad + nameW, nameY);
+    cs();
+  }
+
+  // バッジ
+  const by2=nameY+H*.056; let bx=pad;
+  if(v('genre')) bx+=badge(v('genre'),bx,by2,.17);
+  if(v('price')) badge(priceVal(),bx,by2,.11);
+
+  // 縦線アクセント + エリア・日付
+  const botY=H-160, mapY=botY-80, mapH=80, mcy=mapY+mapH/2;
+  cs();
+  ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.lineWidth=3; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(pad+2,mcy-32); ctx.lineTo(pad+2,mcy+22); ctx.stroke();
+  const tx=pad+24;
+  ss(6,.35); ctx.textAlign='left';
+  ctx.font=`300 ${W*.028}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.93)';
+  ctx.fillText(lang==='en' ? toRomaji(v('area')) : v('area'), tx, mcy-4);
+  ctx.font=`300 ${W*.023}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.55)';
+  ctx.fillText(lang==='en' ? fmtDate(v('date')) : v('date'), tx, mcy+30); cs();
+
+  // 評価
+  const rn=parseFloat(v('rating')), rg=parseFloat(v('rating-google'));
+  if(rSrc==='both' && !isNaN(rn) && !isNaN(rg)){
+    const rStart=W*.58, colW=(W-pad-rStart)/2;
+    const tX=rStart+colW*.5, gX=rStart+colW*1.5;
+    cs(); ctx.strokeStyle='rgba(255,255,255,.15)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(rStart+colW,mcy-55); ctx.lineTo(rStart+colW,mcy+65); ctx.stroke();
+    ctx.textAlign='center';
+    cs(); ctx.font=`400 ${W*.020}px sans-serif`;
+    const tsw=ctx.measureText('★★★★★').width;
+    stars(rn,tX-tsw/2,mcy-42,W*.020,starColor(rn));
+    ss(18,.9); ctx.font=`500 ${W*.054}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.97)';
+    ctx.fillText(rn.toFixed(2),tX,mcy+20);
+    ss(10,.8); ctx.font=`400 ${W*.020}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.42)';
+    ctx.fillText('食べログ',tX,mcy+52);
+    cs(); ctx.font=`400 ${W*.020}px sans-serif`;
+    const gsw=ctx.measureText('★★★★★').width;
+    stars(rg,gX-gsw/2,mcy-42,W*.020,starColor(rg));
+    ss(18,.9); ctx.font=`500 ${W*.054}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.97)';
+    ctx.fillText(rg.toFixed(1),gX,mcy+20);
+    ss(10,.8); ctx.font=`400 ${W*.020}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.42)';
+    ctx.fillText('Google',gX,mcy+52);
+    cs(); ctx.textAlign='left';
+  } else if(rSrc!=='none'){
+    const isG=rSrc==='google', rval=isG?rg:rn;
+    if(!isNaN(rval)){
+      ctx.textAlign='right'; cs(); ctx.font=`400 ${W*.024}px sans-serif`;
+      const sw=ctx.measureText('★★★★★').width;
+      stars(rval,W-pad-sw,mcy-52,W*.024,starColor(rval));
+      ss(24,.9); ctx.font=`500 ${W*.070}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.97)';
+      ctx.fillText(isG?rval.toFixed(1):rval.toFixed(2),W-pad,mcy+28);
+      ss(12,.8); ctx.font=`400 ${W*.026}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.45)';
+      ctx.fillText(isG?'Google':'食べログ',W-pad,mcy+62);
+      cs(); ctx.textAlign='left';
+    }
+  }
+}
+
+// ファイル選択
+document.getElementById('file-input').addEventListener('change', function(e){
+  const f=e.target.files[0]; if(!f) return;
+  readExif(f);
+  const img=new Image();
+  img.onload=()=>{
+    photoImg=img; scale=1; ofX=0; ofY=0;
+    document.getElementById('ph').style.display='none';
+    document.getElementById('ul').textContent='写真を変更する';
+    document.getElementById('eb').disabled=false;
+    document.getElementById('eb').textContent='画像を書き出す（PNG · 1080×1350）';
+    updateZoomUI(); draw();
+  };
+  img.src=URL.createObjectURL(f);
+});
+
+// UIイベント
+document.querySelectorAll('[data-size]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('[data-size]').forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on'); exportSize=btn.dataset.size;
+    const sizes = {'45':[1080,1350],'11':[1080,1080],'916':[1080,1920]};
+    [W, H] = sizes[exportSize] || [1080,1350];
+    cv.width = W; cv.height = H;
+
+    draw();
+  });
+});
+document.querySelectorAll('[data-src]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('[data-src]').forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on'); rSrc=btn.dataset.src;
+    const none=rSrc==='none', g=rSrc==='google';
+    document.getElementById('rt-wrap').style.display=(none||g)?'none':'';
+    document.getElementById('rg-wrap').style.display=(none||rSrc==='tabelog')?'none':'';
+    draw();
+  });
+});
+document.querySelectorAll('[data-style]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('[data-style]').forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on'); oStyle=btn.dataset.style; draw();
+  });
+});
+function setCur(c){
+  cur=c;
+  document.getElementById('cy').classList.toggle('on',c==='¥');
+  document.getElementById('cen').classList.toggle('on',c==='円');
+  draw();
+}
+document.getElementById('price').addEventListener('blur',function(){
+  const raw=this.value.replace(/,/g,'');
+  const m=raw.match(/^(\d+)(.*)/);
+  if(m) this.value=parseInt(m[1]).toLocaleString('ja-JP')+m[2];
+  draw();
+});
+document.getElementById('gs-range').addEventListener('input',function(){
+  gradStr=parseInt(this.value)/100;
+  document.getElementById('gs-val').textContent=this.value+'%';
+  draw();
+});
+document.getElementById('eb').addEventListener('click',()=>{
+  const sizeLabel = {'45':'4x5','11':'1x1','916':'9x16'}[exportSize]||'4x5';
+  const a = document.createElement('a');
+  a.download = `${v('name')||'gourmet'}_${fmtDate(v('date'))||'visit'}_${sizeLabel}.png`;
+  a.href = cv.toDataURL('image/png'); a.click();
+});
+['name','dish','genre','area','date','rating','rating-google'].forEach(id=>{
+  document.getElementById(id)?.addEventListener('input',draw);
+});
+
+draw();
+</script>
+</body>
+</html>
