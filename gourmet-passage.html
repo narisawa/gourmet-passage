@@ -85,14 +85,14 @@ input[type="range"] { flex: 1; }
   <!-- 店名 -->
   <div class="section">
     <label class="fl">店名</label>
-    <input type="search" id="name" placeholder="たかおか">
+    <input type="search" id="name" readonly placeholder="たかおか">
   </div>
 
   <!-- ジャンル・予算 -->
   <div class="section row2">
     <div>
       <div class="lh22"><label class="fl" style="margin-bottom:0;">ジャンル</label></div>
-      <input type="search" id="genre" placeholder="鮨 おまかせ">
+      <input type="search" id="genre" readonly placeholder="鮨 おまかせ">
     </div>
     <div>
       <div class="lh22" style="justify-content:space-between;">
@@ -102,14 +102,14 @@ input[type="range"] { flex: 1; }
           <button class="cur-btn" id="cen" onclick="setCur('円')">円</button>
         </div>
       </div>
-      <input type="search" id="price" placeholder="30,000〜">
+      <input type="search" id="price" readonly placeholder="30,000〜">
     </div>
   </div>
 
   <!-- 商品名 -->
   <div class="section">
     <label class="fl">商品名・料理名</label>
-    <input type="search" id="dish" placeholder="大トロ">
+    <input type="search" id="dish" readonly placeholder="大トロ">
   </div>
 
   <!-- エリア・訪問日 -->
@@ -122,12 +122,12 @@ input[type="range"] { flex: 1; }
           <button class="cur-btn" id="la-en" onclick="setLang('en')">EN</button>
         </div>
       </div>
-      <input type="search" id="area" placeholder="千葉市 · 千葉駅">
+      <input type="search" id="area" readonly placeholder="千葉市 · 千葉駅">
       <div class="gps-st" id="gs"></div>
     </div>
     <div>
       <div class="lh22"><label class="fl" style="margin-bottom:0;">訪問日</label></div>
-      <input type="search" id="date" placeholder="2025年12月15日">
+      <input type="search" id="date" readonly placeholder="2025年12月15日">
     </div>
   </div>
 
@@ -142,11 +142,11 @@ input[type="range"] { flex: 1; }
     </div>
     <div id="rt-wrap">
       <label class="fl">食べログ評価</label>
-      <input type="number" id="rating" step="0.01" min="1" max="5" placeholder="3.85">
+      <input type="number" id="rating" readonly step="0.01" min="1" max="5" placeholder="3.85">
     </div>
     <div id="rg-wrap" style="display:none;margin-top:8px;">
       <label class="fl">Google評価</label>
-      <input type="number" id="rating-google" step="0.1" min="1" max="5" placeholder="4.2">
+      <input type="number" id="rating-google" readonly step="0.1" min="1" max="5" placeholder="4.2">
     </div>
   </div>
 
@@ -532,15 +532,19 @@ document.getElementById('eb').addEventListener('click',()=>{
 });
 
 
-// フォーカス時に一度だけクリア
-document.querySelectorAll('input[type="search"], input[type="number"]').forEach(el => {
-  el.addEventListener('focus', function() {
-    if (!this.dataset.cleared) {
-      this.value = '';
-      this.dataset.cleared = '1';
-      draw();
-    }
-  });
+
+// readonlyでオートフィルをブロック、タップで解除
+document.querySelectorAll('input[readonly]').forEach(el => {
+  el.addEventListener('touchstart', function() {
+    this.removeAttribute('readonly');
+    this.value = '';
+    draw();
+  }, {once: true});
+  el.addEventListener('mousedown', function() {
+    this.removeAttribute('readonly');
+    this.value = '';
+    draw();
+  }, {once: true});
 });
 
 draw();
