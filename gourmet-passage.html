@@ -375,18 +375,33 @@ function draw(){
 
   // 店名
   ss(oStyle==='odaiba'?0:10, oStyle==='odaiba'?0:0.4);
-  ctx.font=`${fw} ${W*.066}px -apple-system,"Hiragino Sans",sans-serif`;
   ctx.fillStyle='rgba(255,255,255,.97)'; ctx.textAlign='left';
   const nameText = v('name')||'店名';
+  const maxNameW = W - pad*2 - (v('dish') ? W*0.3 : 0);
+
+  // 店名フォントサイズを自動縮小
+  let nameFontSize = W*.066;
+  ctx.font=`${fw} ${nameFontSize}px -apple-system,"Hiragino Sans",sans-serif`;
+  while(ctx.measureText(nameText).width > maxNameW && nameFontSize > W*.030) {
+    nameFontSize -= W*.002;
+    ctx.font=`${fw} ${nameFontSize}px -apple-system,"Hiragino Sans",sans-serif`;
+  }
   ctx.fillText(nameText, pad, nameY); cs();
 
   // 商品名（店名の右に / 料理名）
   if(v('dish')) {
     const nameW = ctx.measureText(nameText).width;
+    const maxDishW = W - pad - nameW - pad*0.5;
     ss(6,.4);
-    ctx.font=`300 ${W*.038}px -apple-system,"Hiragino Sans",sans-serif`;
+    let dishFontSize = W*.038;
+    ctx.font=`300 ${dishFontSize}px -apple-system,"Hiragino Sans",sans-serif`;
+    const dishText = ' / ' + v('dish');
+    while(ctx.measureText(dishText).width > maxDishW && dishFontSize > W*.020) {
+      dishFontSize -= W*.002;
+      ctx.font=`300 ${dishFontSize}px -apple-system,"Hiragino Sans",sans-serif`;
+    }
     ctx.fillStyle='rgba(255,255,255,.75)';
-    ctx.fillText(' / ' + v('dish'), pad + nameW, nameY);
+    ctx.fillText(dishText, pad + nameW, nameY);
     cs();
   }
 
