@@ -150,8 +150,18 @@ input[type="range"] { flex: 1; }
     </div>
   </div>
 
-  <!-- スタイル -->
+  <!-- レイアウト -->
   <div class="section">
+    <label class="fl">レイアウト</label>
+    <div class="seg-row">
+      <button class="seg on" data-layout="overlay">オーバーレイ</button>
+      <button class="seg" data-layout="split">スプリット</button>
+      <button class="seg" data-layout="triple">3段</button>
+    </div>
+  </div>
+
+  <!-- スタイル -->
+  <div class="section" id="style-section">
     <label class="fl">オーバーレイスタイル</label>
     <div class="seg-row">
       <button class="seg on" data-style="dark">ダーク</button>
@@ -177,7 +187,7 @@ const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d');
 const CW = 1080;
 let W = 1080, H = 1350;
-let photoImg = null, rSrc = 'tabelog', oStyle = 'dark', cur = '¥', gradStr = 0.38, lang = 'ja', exportSize = '45';
+let photoImg = null, rSrc = 'tabelog', oStyle = 'dark', cur = '¥', gradStr = 0.38, lang = 'ja', exportSize = '45', layout = 'overlay';
 let scale = 1, ofX = 0, ofY = 0;
 
 const MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
@@ -358,6 +368,306 @@ function stars(score,x,y,size,color){
 
 function draw(){
   ctx.clearRect(0,0,W,H); ctx.fillStyle='#141414'; ctx.fillRect(0,0,W,H);
+
+  if(layout==='split'){
+    // スプリットレイアウト：上70%写真 / 下30%ダーク
+    const photoH = Math.round(H*0.75);
+    const infoH  = H - photoH;
+
+    // 写真エリア（クリップ）
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0,0,W,photoH); ctx.clip();
+    if(photoImg){
+      const ia=photoImg.width/photoImg.height, ca=W/(photoH);
+      const bw=ia>ca?photoH*ia:W, bh=ia>ca?photoH:W/ia;
+      ctx.drawImage(photoImg,(W-bw*scale)/2+ofX,(photoH-bh*scale)/2+ofY*0.5,bw*scale,bh*scale);
+    }
+    ctx.restore();
+
+    // 情報エリア：写真の下端色を取得してアンビエント背景に
+    let ambR=18, ambG=18, ambB=18;
+    if(photoImg){
+      // 写真の描画済み下端からサンプリング
+      const sampleY = photoH - 20;
+      const px = ctx.getImageData(0, sampleY, W, 20);
+      let rSum=0, gSum=0, bSum=0, cnt=0;
+      for(let i=0; i<px.data.length; i+=16){
+        rSum+=px.data[i]; gSum+=px.data[i+1]; bSum+=px.data[i+2]; cnt++;
+      }
+      if(cnt>0){
+        // 暗めに補正（明度を40%以下に抑える）
+        const factor = 0.28;
+        ambR=Math.round(rSum/cnt*factor);
+        ambG=Math.round(gSum/cnt*factor);
+        ambB=Math.round(bSum/cnt*factor);
+      }
+    }
+    // グラデーション：上（写真色）→下（もう少し暗く）
+    const ambGrad = ctx.createLinearGradient(0, photoH, 0, H);
+    ambGrad.addColorStop(0, `rgb(${Math.min(ambR+15,60)},${Math.min(ambG+12,55)},${Math.min(ambB+10,50)})`);
+    ambGrad.addColorStop(1, `rgb(${Math.max(ambR-8,8)},${Math.max(ambG-8,8)},${Math.max(ambB-8,8)})`);
+    ctx.fillStyle=ambGrad; ctx.fillRect(0,photoH,W,infoH);
+
+    // 区切りをなくしてphotoHから微妙にblend
+    const blendH = 40;
+    const blend = ctx.createLinearGradient(0, photoH-blendH, 0, photoH+8);
+    blend.addColorStop(0,'rgba(0,0,0,0)');
+    blend.addColorStop(1,`rgb(${Math.min(ambR+15,60)},${Math.min(ambG+12,55)},${Math.min(ambB+10,50)})`);
+    ctx.fillStyle=blend; ctx.fillRect(0,photoH-blendH,W,blendH+8);
+
+    const pad=80;
+    const nameY = photoH + infoH*0.38;
+
+    // 店名
+    ctx.fillStyle='rgba(255,255,255,.97)'; ctx.textAlign='left';
+    const nameText2 = v('name')||'店名';
+    const maxNW2 = W - pad*2 - (v('dish') ? W*0.3 : 0);
+    let nfs2 = W*.058;
+    ctx.font=`300 ${nfs2}px -apple-system,"Hiragino Sans",sans-serif`;
+    while(ctx.measureText(nameText2).width > maxNW2 && nfs2 > W*.028){
+      nfs2 -= W*.002;
+      ctx.font=`300 ${nfs2}px -apple-system,"Hiragino Sans",sans-serif`;
+    }
+    ctx.fillText(nameText2, pad, nameY);
+
+    if(v('dish')){
+      const nw2=ctx.measureText(nameText2).width;
+      let dfs2=W*.032;
+      const dishTxt2=' / '+v('dish');
+      ctx.font=`300 ${dfs2}px -apple-system,"Hiragino Sans",sans-serif`;
+      const maxDW2=W-pad-nw2-pad*0.5;
+      while(ctx.measureText(dishTxt2).width>maxDW2&&dfs2>W*.018){dfs2-=W*.002;ctx.font=`300 ${dfs2}px -apple-system,"Hiragino Sans",sans-serif`;}
+      ctx.fillStyle='rgba(255,255,255,.65)';
+      ctx.fillText(dishTxt2, pad+nw2, nameY);
+    }
+
+    // バッジ
+    const by2s=nameY+infoH*0.20; let bxs=pad;
+    if(v('genre')) bxs+=badge(v('genre'),bxs,by2s,.17);
+    if(v('price')) badge(priceVal(),bxs,by2s,.11);
+
+    // エリア・日付
+    const botYs=H-52, mcys=botYs-infoH*0.12;
+    // 小さい赤ピン（スプリット）
+    const spPinR=10, spPinX=pad+10, spPinY=mcys-6;
+    ctx.fillStyle='rgba(224,60,60,0.90)';
+    ctx.beginPath(); ctx.arc(spPinX,spPinY,spPinR,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(spPinX-6,spPinY+5); ctx.lineTo(spPinX+6,spPinY+5); ctx.lineTo(spPinX,spPinY+spPinR+10); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.88)';
+    ctx.beginPath(); ctx.arc(spPinX,spPinY,spPinR*0.38,0,Math.PI*2); ctx.fill();
+    const txs=pad+26;
+    ctx.textAlign='left';
+    ctx.font=`300 ${W*.024}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.80)';
+    ctx.fillText(lang==='en'?toRomaji(v('area')):v('area'), txs, mcys-2);
+    ctx.font=`300 ${W*.020}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.48)';
+    ctx.fillText(lang==='en'?fmtDate(v('date')):v('date'), txs, mcys+26);
+
+    // 評価
+    const rns=parseFloat(v('rating')), rgs=parseFloat(v('rating-google'));
+    const mcyR = photoH + infoH*0.62;
+    if(rSrc==='both'&&!isNaN(rns)&&!isNaN(rgs)){
+      const rStart=W*.58,colW=(W-pad-rStart)/2;
+      const tXs=rStart+colW*.5, gXs=rStart+colW*1.5;
+      ctx.strokeStyle='rgba(255,255,255,.12)'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(rStart+colW,mcyR-45); ctx.lineTo(rStart+colW,mcyR+55); ctx.stroke();
+      ctx.textAlign='center';
+      ctx.font=`400 ${W*.018}px sans-serif`;
+      const tswS=ctx.measureText('★★★★★').width;
+      stars(rns,tXs-tswS/2,mcyR-35,W*.018,starColor(rns));
+      ctx.font=`500 ${W*.048}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.97)';
+      ctx.fillText(rns.toFixed(2),tXs,mcyR+18);
+      ctx.font=`400 ${W*.018}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.42)';
+      ctx.fillText('食べログ',tXs,mcyR+44);
+      ctx.font=`400 ${W*.018}px sans-serif`;
+      const gswS=ctx.measureText('★★★★★').width;
+      stars(rgs,gXs-gswS/2,mcyR-35,W*.018,starColor(rgs));
+      ctx.font=`500 ${W*.048}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.97)';
+      ctx.fillText(rgs.toFixed(1),gXs,mcyR+18);
+      ctx.font=`400 ${W*.018}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.42)';
+      ctx.fillText('Google',gXs,mcyR+44);
+      ctx.textAlign='left';
+    } else if(rSrc!=='none'){
+      const isGs=rSrc==='google', rvals=isGs?rgs:rns;
+      if(!isNaN(rvals)){
+        ctx.textAlign='right';
+        ctx.font=`400 ${W*.021}px sans-serif`;
+        const sws=ctx.measureText('★★★★★').width;
+        stars(rvals,W-pad-sws,mcyR-58,W*.021,starColor(rvals));
+        ctx.font=`500 ${W*.062}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.97)';
+        ctx.fillText(isGs?rvals.toFixed(1):rvals.toFixed(2),W-pad,mcyR+18);
+        ctx.font=`400 ${W*.022}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.42)';
+        ctx.fillText(isGs?'Google':'食べログ',W-pad,mcyR+46);
+        ctx.textAlign='left';
+      }
+    }
+    return; // スプリットはここで終了
+  }
+
+  if(layout==='triple'){
+    // ── 3段レイアウト（9:16 = 1080×1920）──
+    // Instagram grid: 中央1080×1080（y=420〜1500）だけ見える
+    const topH = 420, photoH2 = 1080, botH = 420;
+    const photoY = topH; // = 420
+
+    // ── 上段：写真色ベース背景 ──
+    // 写真の上端から色サンプリング（上段は写真上部の色）
+    let t_ambR=20,t_ambG=18,t_ambB=18;
+    if(photoImg){
+      const tmp=document.createElement('canvas');tmp.width=W;tmp.height=photoH2;
+      const tc2=tmp.getContext('2d');
+      const ia_t=photoImg.width/photoImg.height;
+      let sx_t,sy_t,sw_t,sh_t;
+      if(ia_t>1){sw_t=photoImg.height;sh_t=photoImg.height;sx_t=(photoImg.width-sw_t)/2;sy_t=0;}
+      else{sw_t=photoImg.width;sh_t=photoImg.width;sx_t=0;sy_t=(photoImg.height-sh_t)/2;}
+      tc2.drawImage(photoImg,sx_t,sy_t,sw_t,sh_t,0,0,W,photoH2);
+      const px_t=tc2.getImageData(0,0,W,30);
+      let rs=0,gs=0,bs=0,cnt=0;
+      for(let i=0;i<px_t.data.length;i+=16){rs+=px_t.data[i];gs+=px_t.data[i+1];bs+=px_t.data[i+2];cnt++;}
+      if(cnt>0){t_ambR=Math.round(rs/cnt*0.25);t_ambG=Math.round(gs/cnt*0.25);t_ambB=Math.round(bs/cnt*0.25);}
+    }
+    const tg=ctx.createLinearGradient(0,0,0,topH);
+    tg.addColorStop(0,`rgb(${Math.max(t_ambR-8,8)},${Math.max(t_ambG-8,8)},${Math.max(t_ambB-8,8)})`);
+    tg.addColorStop(1,`rgb(${Math.min(t_ambR+12,55)},${Math.min(t_ambG+10,50)},${Math.min(t_ambB+8,48)})`);
+    ctx.fillStyle=tg; ctx.fillRect(0,0,W,topH);
+    // アクセントライン（上段下部）
+    ctx.strokeStyle='rgba(255,255,255,0.08)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(60,topH-1); ctx.lineTo(W-60,topH-1); ctx.stroke();
+
+    const tp_pad=80;
+    // 店名
+    ctx.fillStyle='rgba(255,255,255,.95)'; ctx.textAlign='left';
+    const tp_name=v('name')||'店名';
+    let tp_nfs=W*0.072;
+    ctx.font=`300 ${tp_nfs}px -apple-system,"Hiragino Sans",sans-serif`;
+    while(ctx.measureText(tp_name).width>W-tp_pad*2&&tp_nfs>W*0.032){tp_nfs-=W*0.002;ctx.font=`300 ${tp_nfs}px -apple-system,"Hiragino Sans",sans-serif`;}
+    ss(8,0.3); ctx.fillText(tp_name, tp_pad, topH*0.50); cs();
+
+    // 商品名
+    if(v('dish')){
+      const nw=ctx.measureText(tp_name).width;
+      ctx.font=`300 ${W*0.024}px -apple-system,"Hiragino Sans",sans-serif`;
+      ctx.fillStyle='rgba(255,255,255,.55)';
+      ctx.fillText(' / '+v('dish'), tp_pad+nw, topH*0.50);
+    }
+
+    // ジャンル・予算をテキストで（バッジなし）
+    const tp_sub = [v('genre'), priceVal()].filter(Boolean).join('  ·  ');
+    if(tp_sub){
+      ctx.font=`300 ${W*0.022}px -apple-system,"Hiragino Sans",sans-serif`;
+      ctx.fillStyle='rgba(255,255,255,.50)'; ctx.textAlign='left';
+      ctx.fillText(tp_sub, tp_pad, topH*0.88);
+    }
+
+    // ── 中段：写真（1080×1080, y=420〜1500）──
+    ctx.fillStyle='#0a0a0a'; ctx.fillRect(0,photoY,W,photoH2);
+    if(photoImg){
+      const ia=photoImg.width/photoImg.height;
+      // 1:1クロップ
+      let sx,sy,sw,sh;
+      if(ia>1){sw=photoImg.height;sh=photoImg.height;sx=(photoImg.width-sw)/2;sy=0;}
+      else{sw=photoImg.width;sh=photoImg.width;sx=0;sy=(photoImg.height-sh)/2;}
+      // scale/pan適用
+      const drawSize=W*scale;
+      const drawX=(W-drawSize)/2+ofX;
+      ctx.save();
+      ctx.beginPath(); ctx.rect(0,photoY,W,photoH2); ctx.clip();
+      ctx.drawImage(photoImg,sx,sy,sw,sh, drawX, photoY+(photoH2-drawSize)/2+ofY, drawSize, drawSize);
+      ctx.restore();
+    }
+
+    // ── 下段：写真色ベース背景 ──
+    const botY2=photoY+photoH2;
+    let b_ambR=20,b_ambG=18,b_ambB=18;
+    if(photoImg){
+      const tmp2=document.createElement('canvas');tmp2.width=W;tmp2.height=photoH2;
+      const tc3=tmp2.getContext('2d');
+      const ia_b=photoImg.width/photoImg.height;
+      let sx_b,sy_b,sw_b,sh_b;
+      if(ia_b>1){sw_b=photoImg.height;sh_b=photoImg.height;sx_b=(photoImg.width-sw_b)/2;sy_b=0;}
+      else{sw_b=photoImg.width;sh_b=photoImg.width;sx_b=0;sy_b=(photoImg.height-sh_b)/2;}
+      tc3.drawImage(photoImg,sx_b,sy_b,sw_b,sh_b,0,0,W,photoH2);
+      const px_b=tc3.getImageData(0,photoH2-30,W,30);
+      let rs2=0,gs2=0,bs2=0,cnt2=0;
+      for(let i=0;i<px_b.data.length;i+=16){rs2+=px_b.data[i];gs2+=px_b.data[i+1];bs2+=px_b.data[i+2];cnt2++;}
+      if(cnt2>0){b_ambR=Math.round(rs2/cnt2*0.25);b_ambG=Math.round(gs2/cnt2*0.25);b_ambB=Math.round(bs2/cnt2*0.25);}
+    }
+    const bg2=ctx.createLinearGradient(0,botY2,0,H);
+    bg2.addColorStop(0,`rgb(${Math.min(b_ambR+12,55)},${Math.min(b_ambG+10,50)},${Math.min(b_ambB+8,48)})`);
+    bg2.addColorStop(1,`rgb(${Math.max(b_ambR-8,8)},${Math.max(b_ambG-8,8)},${Math.max(b_ambB-8,8)})`);
+    ctx.fillStyle=bg2; ctx.fillRect(0,botY2,W,botH);
+    ctx.strokeStyle='rgba(255,255,255,0.08)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(60,botY2); ctx.lineTo(W-60,botY2); ctx.stroke();
+
+    const bot_cy = botY2 + botH*0.5;
+
+    // ピン＋エリア・日付
+    const bp_pinR=10, bp_pinX=tp_pad+12, bp_pinY=bot_cy-8;
+    ctx.fillStyle='rgba(224,60,60,0.90)';
+    ctx.beginPath(); ctx.arc(bp_pinX,bp_pinY,bp_pinR,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(bp_pinX-7,bp_pinY+6); ctx.lineTo(bp_pinX+7,bp_pinY+6); ctx.lineTo(bp_pinX,bp_pinY+bp_pinR+12); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.88)';
+    ctx.beginPath(); ctx.arc(bp_pinX,bp_pinY,bp_pinR*0.38,0,Math.PI*2); ctx.fill();
+
+    const bp_tx=tp_pad+30;
+    ctx.textAlign='left';
+    ctx.font=`300 ${W*0.024}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.80)';
+    ctx.fillText(lang==='en'?toRomaji(v('area')):v('area'), bp_tx, bot_cy-4);
+    ctx.font=`300 ${W*0.020}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.45)';
+    ctx.fillText(lang==='en'?fmtDate(v('date')):v('date'), bp_tx, bot_cy+22);
+
+    // 評価
+    const rn3=parseFloat(v('rating')), rg3=parseFloat(v('rating-google'));
+    if(rSrc==='both'&&!isNaN(rn3)&&!isNaN(rg3)){
+      const rStart=W*.56,colW=(W-tp_pad-rStart)/2;
+      const tX3=rStart+colW*.5, gX3=rStart+colW*1.5;
+      ctx.strokeStyle='rgba(255,255,255,.12)'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(rStart+colW,bot_cy-55); ctx.lineTo(rStart+colW,bot_cy+60); ctx.stroke();
+      // 両方同じサイズ・位置・小数桁で統一
+      const starSz3b = W*0.020;
+      ctx.textAlign='center';
+      ctx.font=`400 ${starSz3b}px sans-serif`;
+      const tsw3=ctx.measureText('★★★★★').width;
+      stars(rn3, tX3-tsw3/2, bot_cy-42, starSz3b, starColor(rn3));
+      ss(14,.9); ctx.font=`500 ${W*0.046}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.97)';
+      ctx.fillText(rn3.toFixed(2), tX3, bot_cy+14);
+      ss(6,.7); ctx.font=`400 ${W*0.018}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.42)';
+      ctx.fillText('食べログ', tX3, bot_cy+36);
+      cs();
+      ctx.font=`400 ${starSz3b}px sans-serif`;
+      const gsw3=ctx.measureText('★★★★★').width;
+      stars(rg3, gX3-gsw3/2, bot_cy-42, starSz3b, starColor(rg3));
+      ss(14,.9); ctx.font=`500 ${W*0.046}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.97)';
+      ctx.fillText(rg3.toFixed(1), gX3, bot_cy+14);
+      ss(6,.7); ctx.font=`400 ${W*0.018}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.42)';
+      ctx.fillText('Google', gX3, bot_cy+36);
+      cs(); ctx.textAlign='left';
+    } else if(rSrc!=='none'){
+      const isG3=rSrc==='google', rv3=isG3?rg3:rn3;
+      if(!isNaN(rv3)){
+        ctx.textAlign='right';
+        // 星・スコア・ラベルを右端基準で固定
+        const starSz3=W*0.020;
+        ctx.font=`400 ${starSz3}px sans-serif`;
+        const sw3=ctx.measureText('★★★★★').width;
+        const scoreStr3=rv3.toFixed(2); // 両方2桁で統一
+        ss(14,.9); ctx.font=`500 ${W*0.054}px -apple-system,sans-serif`;
+        const scoreW3=ctx.measureText(scoreStr3).width;
+        // 星の右端をW-tp_padに合わせる
+        const starX3=W-tp_pad-sw3;
+        // スコアも同じ右端
+        cs(); ctx.font=`400 ${starSz3}px sans-serif`;
+        stars(rv3, starX3, bot_cy-38, starSz3, starColor(rv3));
+        ss(14,.9); ctx.font=`500 ${W*0.054}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.97)';
+        ctx.fillText(scoreStr3, W-tp_pad, bot_cy+14);
+        ss(6,.7); ctx.font=`400 ${W*0.020}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.42)';
+        ctx.fillText(isG3?'Google':'食べログ', W-tp_pad, bot_cy+38);
+        cs(); ctx.textAlign='left';
+      }
+    }
+    return;
+  }
+
+  // ── 以下オーバーレイレイアウト ──
   if(photoImg){
     const ia=photoImg.width/photoImg.height, ca=W/H;
     const bw=ia>ca?H*ia:W, bh=ia>ca?H:W/ia;
@@ -365,10 +675,11 @@ function draw(){
   }
   const ec={dark:[0,0,0],navy:[10,10,28],warm:[30,9,2],odaiba:[0,0,0]};
   const [er,eg,eb]=ec[oStyle]||ec.dark;
-  const gs2=oStyle==='odaiba'?0.06:gradStr;
+  const gs2=oStyle==='odaiba'?0.04:gradStr;
   const g=ctx.createLinearGradient(0,H*.62,0,H);
   g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,`rgba(${er},${eg},${eb},${gs2})`);
   ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
 
   const pad=80, nameY=H-384;
   const fw=oStyle==='odaiba'?'200':'300';
@@ -410,12 +721,17 @@ function draw(){
   if(v('genre')) bx+=badge(v('genre'),bx,by2,.17);
   if(v('price')) badge(priceVal(),bx,by2,.11);
 
-  // 縦線アクセント + エリア・日付
+  // ピン + エリア・日付
   const botY=H-160, mapY=botY-80, mapH=80, mcy=mapY+mapH/2;
   cs();
-  ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.lineWidth=3; ctx.lineCap='round';
-  ctx.beginPath(); ctx.moveTo(pad+2,mcy-32); ctx.lineTo(pad+2,mcy+22); ctx.stroke();
-  const tx=pad+24;
+  // 小さい赤ピン
+  const pinR=12, pinX2=pad+12, pinY2=mcy-8;
+  ctx.fillStyle='rgba(224,60,60,0.90)';
+  ctx.beginPath(); ctx.arc(pinX2,pinY2,pinR,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(pinX2-7,pinY2+6); ctx.lineTo(pinX2+7,pinY2+6); ctx.lineTo(pinX2,pinY2+pinR+12); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,0.88)';
+  ctx.beginPath(); ctx.arc(pinX2,pinY2,pinR*0.38,0,Math.PI*2); ctx.fill();
+  const tx=pad+30;
   ss(6,.35); ctx.textAlign='left';
   ctx.font=`300 ${W*.028}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.93)';
   ctx.fillText(lang==='en' ? toRomaji(v('area')) : v('area'), tx, mcy-4);
@@ -450,7 +766,7 @@ function draw(){
     if(!isNaN(rval)){
       ctx.textAlign='right'; cs(); ctx.font=`400 ${W*.024}px sans-serif`;
       const sw=ctx.measureText('★★★★★').width;
-      stars(rval,W-pad-sw,mcy-52,W*.024,starColor(rval));
+      stars(rval,W-pad-sw,mcy-72,W*.024,starColor(rval));
       ss(24,.9); ctx.font=`500 ${W*.070}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.97)';
       ctx.fillText(isG?rval.toFixed(1):rval.toFixed(2),W-pad,mcy+28);
       ss(12,.8); ctx.font=`400 ${W*.026}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.45)';
@@ -477,6 +793,25 @@ document.getElementById('file-input').addEventListener('change', function(e){
 });
 
 // UIイベント
+document.querySelectorAll('[data-layout]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('[data-layout]').forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on'); layout=btn.dataset.layout;
+    // 3段は9:16固定
+    if(layout==='triple'){
+      W=1080; H=1920; cv.width=W; cv.height=H;
+      document.querySelectorAll('[data-size]').forEach(b=>b.classList.remove('on'));
+      document.querySelector('[data-size="916"]').classList.add('on');
+      exportSize='916';
+    } else if(H===1920){
+      W=1080; H=1350; cv.width=W; cv.height=H;
+      document.querySelectorAll('[data-size]').forEach(b=>b.classList.remove('on'));
+      document.querySelector('[data-size="45"]').classList.add('on');
+      exportSize='45';
+    }
+    draw();
+  });
+});
 document.querySelectorAll('[data-size]').forEach(btn=>{
   btn.addEventListener('click',()=>{
     document.querySelectorAll('[data-size]').forEach(b=>b.classList.remove('on'));
