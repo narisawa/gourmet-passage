@@ -371,7 +371,7 @@ function draw(){
 
   if(layout==='split'){
     // スプリットレイアウト：上70%写真 / 下30%ダーク
-    const photoH = Math.round(H*0.75);
+    const photoH = Math.min(1080, Math.round(H*0.80));
     const infoH  = H - photoH;
 
     // 写真エリア（クリップ）
