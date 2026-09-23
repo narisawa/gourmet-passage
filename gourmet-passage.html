@@ -416,7 +416,7 @@ function draw(){
     ctx.fillStyle=blend; ctx.fillRect(0,photoH-blendH,W,blendH+8);
 
     const pad=80;
-    const nameY = photoH + infoH*0.38;
+    const nameY = photoH + infoH*0.25;
 
     // 店名
     ctx.fillStyle='rgba(255,255,255,.97)'; ctx.textAlign='left';
@@ -442,14 +442,14 @@ function draw(){
     }
 
     // バッジ
-    const by2s=nameY+infoH*0.20; let bxs=pad;
+    const by2s=photoH+infoH*0.46; let bxs=pad;
     if(v('genre')) bxs+=badge(v('genre'),bxs,by2s,.17);
     if(v('price')) badge(priceVal(),bxs,by2s,.11);
 
     // エリア・日付
-    const botYs=H-52, mcys=botYs-infoH*0.12;
+    const areaY=photoH+infoH*0.73, dateY=photoH+infoH*0.89;
     // 小さい赤ピン（スプリット）
-    const spPinR=10, spPinX=pad+10, spPinY=mcys-6;
+    const spPinR=10, spPinX=pad+10, spPinY=areaY-8;
     ctx.fillStyle='rgba(224,60,60,0.90)';
     ctx.beginPath(); ctx.arc(spPinX,spPinY,spPinR,0,Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.moveTo(spPinX-6,spPinY+5); ctx.lineTo(spPinX+6,spPinY+5); ctx.lineTo(spPinX,spPinY+spPinR+10); ctx.closePath(); ctx.fill();
@@ -458,13 +458,13 @@ function draw(){
     const txs=pad+26;
     ctx.textAlign='left';
     ctx.font=`300 ${W*.024}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.80)';
-    ctx.fillText(lang==='en'?toRomaji(v('area')):v('area'), txs, mcys-2);
+    ctx.fillText(lang==='en'?toRomaji(v('area')):v('area'), txs, areaY);
     ctx.font=`300 ${W*.020}px -apple-system,sans-serif`; ctx.fillStyle='rgba(255,255,255,.48)';
-    ctx.fillText(lang==='en'?fmtDate(v('date')):v('date'), txs, mcys+26);
+    ctx.fillText(lang==='en'?fmtDate(v('date')):v('date'), txs, dateY);
 
     // 評価
     const rns=parseFloat(v('rating')), rgs=parseFloat(v('rating-google'));
-    const mcyR = photoH + infoH*0.62;
+    const mcyR = photoH + infoH*0.70;
     if(rSrc==='both'&&!isNaN(rns)&&!isNaN(rgs)){
       const rStart=W*.58,colW=(W-pad-rStart)/2;
       const tXs=rStart+colW*.5, gXs=rStart+colW*1.5;
